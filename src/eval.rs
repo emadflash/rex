@@ -1,5 +1,5 @@
-use crate::parser::Parser;
 use crate::expr::Expr;
+use crate::parser::Parser;
 
 struct Eval {
     target: String,
@@ -24,7 +24,7 @@ impl Eval {
         ch
     }
 
-    fn expect(&mut self, s: &String) -> bool {
+    fn expect(&mut self, s: &str) -> bool {
         if &self.target[self.curr..(self.curr + s.len())] != s {
             return false;
         }
@@ -33,7 +33,7 @@ impl Eval {
         true
     }
 
-    fn eval_alphabet(&mut self, alphabet: &String) -> bool {
+    fn eval_alphabet(&mut self, alphabet: &str) -> bool {
         self.expect(alphabet)
     }
 
@@ -57,7 +57,7 @@ impl Eval {
         let mut expr = expr;
 
         match *expr {
-            Expr::Alphabet(alphabet) => self.eval_alphabet(&alphabet),
+            Expr::Alphabet(alphabet) => self.eval_alphabet(alphabet),
             Expr::Star(e) => self.eval_star(e),
             Expr::Plus(lhs, rhs) => self.eval_plus(lhs, rhs),
             _ => todo!(),

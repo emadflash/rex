@@ -1,20 +1,20 @@
 use crate::expr::Expr;
-use crate::tokenizer::{tokenize, Token, TokenKind};
+use crate::lex::{tokenize, Token, TokenKind};
 
-pub struct Parser {
-    tokens: Vec<Token>,
+pub struct Parser<'src> {
+    tokens: Vec<Token<'src>>,
     curr: usize,
 }
 
-impl Parser {
-    pub fn from(text: &String) -> Self {
+impl<'src> Parser<'src> {
+    pub fn from(text: &'src str) -> Self {
         Self {
-            tokens: tokenize(&text).unwrap(),
+            tokens: tokenize(text).unwrap(),
             curr: 0,
         }
     }
 
-    fn next(&mut self) -> Option<&Token> {
+    fn next(&mut self) -> Option<&Token<'src>> {
         if self.curr == self.tokens.len() {
             return None;
         }
@@ -24,7 +24,7 @@ impl Parser {
         Some(tok)
     }
 
-    fn peek(&self) -> Option<&Token> {
+    fn peek(&self) -> Option<&Token<'src>> {
         if self.curr == self.tokens.len() {
             return None;
         }
@@ -34,31 +34,32 @@ impl Parser {
     }
 
     // star ::= expr *
-    fn parse_star_expr(&mut self, lhs: Expr) -> Expr {
+    fn parse_star_expr(&mut self, lhs: Expr<'src>) -> Expr<'src> {
         self.next();
         Expr::Star(Box::new(lhs))
     }
 
     // plus ::= expr + expr
-    fn parse_plus_expr(&mut self, lhs: Expr) -> Expr {
+    fn parse_plus_expr(&mut self, lhs: Expr<'src>) -> Expr<'src> {
         self.next();
         Expr::Plus(Box::new(lhs), Box::new(self.parse()))
     }
 
     // dot ::= expr . expr
-    fn parse_dot_expr(&mut self, lhs: Expr) -> Expr {
+    fn parse_dot_expr(&mut self, lhs: Expr<'src>) -> Expr<'src> {
         self.next();
         Expr::Dot(Box::new(lhs), Box::new(self.parse()))
     }
 
     // alphabet ::= 'a'..'z' | '0'..'9'
     // primary ::= alphabet | '(' expr ')'
-    fn parse_primary(&mut self) -> Expr {
+    fn parse_primary(&mut self) -> Expr<'src> {
+        eprintln!("{:?}", self.tokens);
         match self.next() {
             None => panic!("Expected expression"),
             Some(tok) => {
                 match &tok.kind {
-                    TokenKind::Alphabet(alphabet) => return Expr::Alphabet(alphabet.to_string()),
+                    TokenKind::Alphabet(alphabet) => return Expr::Alphabet(alphabet),
                     TokenKind::LeftParen => {
                         let inner = self.parse();
 
@@ -83,7 +84,7 @@ impl Parser {
     }
 
     // expr ::= primary | dot | plus | star
-    fn parse_expr(&mut self, lhs: Expr) -> Expr {
+    fn parse_expr(&mut self, lhs: Expr<'src>) -> Expr<'src> {
         let mut lhs = lhs;
 
         while let Some(tok) = self.peek() {
@@ -99,12 +100,12 @@ impl Parser {
             };
         }
 
-        return lhs;
+        lhs
     }
 
-    pub fn parse(&mut self) -> Expr {
+    pub fn parse(&mut self) -> Expr<'src> {
         let primary = self.parse_primary();
-        return self.parse_expr(primary);
+        self.parse_expr(primary)
     }
 }
 
@@ -114,22 +115,22 @@ mod tests {
 
     #[test]
     fn alphabet_expr() {
-        let mut parser = Parser::from(&"aabb".to_string());
-        assert_eq!(parser.parse(), Expr::Alphabet("aabb".to_string()));
+        let mut parser = Parser::from("aabb");
+        assert_eq!(parser.parse(), Expr::Alphabet("aabb"));
     }
 
     #[test]
     fn plus_expr() {
-        let mut parser = Parser::from(&"69 + 23 + 79 + 59".to_string());
+        let mut parser = Parser::from("69 + 23 + 79 + 59");
         assert_eq!(
             parser.parse(),
             Expr::Plus(
-                Box::new(Expr::Alphabet("69".to_string())),
+                Box::new(Expr::Alphabet("69")),
                 Box::new(Expr::Plus(
-                    Box::new(Expr::Alphabet("23".to_string())),
+                    Box::new(Expr::Alphabet("23")),
                     Box::new(Expr::Plus(
-                        Box::new(Expr::Alphabet("79".to_string())),
-                        Box::new(Expr::Alphabet("59".to_string()))
+                        Box::new(Expr::Alphabet("79")),
+                        Box::new(Expr::Alphabet("59"))
                     )),
                 )),
             )
@@ -138,27 +139,22 @@ mod tests {
 
     #[test]
     fn star_expr() {
-        let mut parser = Parser::from(&"aabb*".to_string());
-        let expr = parser.parse();
-
-        assert_eq!(
-            expr,
-            Expr::Star(Box::new(Expr::Alphabet("aabb".to_string())))
-        );
+        let mut parser = Parser::from("aabb*");
+        assert_eq!(parser.parse(), Expr::Star(Box::new(Expr::Alphabet("aabb"))));
     }
 
     #[test]
     fn dot_expr() {
-        let mut parser = Parser::from(&"a.b.c.d".to_string());
+        let mut parser = Parser::from("a.b.c.d");
         assert_eq!(
             parser.parse(),
             Expr::Dot(
-                Box::new(Expr::Alphabet("a".to_string())),
+                Box::new(Expr::Alphabet("a")),
                 Box::new(Expr::Dot(
-                    Box::new(Expr::Alphabet("b".to_string())),
+                    Box::new(Expr::Alphabet("b")),
                     Box::new(Expr::Dot(
-                        Box::new(Expr::Alphabet("c".to_string())),
-                        Box::new(Expr::Alphabet("d".to_string()))
+                        Box::new(Expr::Alphabet("c")),
+                        Box::new(Expr::Alphabet("d"))
                     )),
                 )),
             )
@@ -167,17 +163,17 @@ mod tests {
 
     #[test]
     fn paren_expr() {
-        let mut parser = Parser::from(&"(a + b).(c + d)".to_string());
+        let mut parser = Parser::from("(a + b).(c + d)");
         assert_eq!(
             parser.parse(),
             Expr::Dot(
                 Box::new(Expr::Plus(
-                    Box::new(Expr::Alphabet("a".to_string())),
-                    Box::new(Expr::Alphabet("b".to_string()))
+                    Box::new(Expr::Alphabet("a")),
+                    Box::new(Expr::Alphabet("b"))
                 )),
                 Box::new(Expr::Plus(
-                    Box::new(Expr::Alphabet("c".to_string())),
-                    Box::new(Expr::Alphabet("d".to_string()))
+                    Box::new(Expr::Alphabet("c")),
+                    Box::new(Expr::Alphabet("d"))
                 )),
             )
         );
@@ -185,17 +181,17 @@ mod tests {
 
     #[test]
     fn parse_expr() {
-        let mut parser = Parser::from(&"(1 + 2).(3 + 4)*".to_string());
+        let mut parser = Parser::from("(1 + 2).(3 + 4)*");
         assert_eq!(
             parser.parse(),
             Expr::Dot(
                 Box::new(Expr::Plus(
-                    Box::new(Expr::Alphabet("1".to_string())),
-                    Box::new(Expr::Alphabet("2".to_string()))
+                    Box::new(Expr::Alphabet("1")),
+                    Box::new(Expr::Alphabet("2"))
                 )),
                 Box::new(Expr::Star(Box::new(Expr::Plus(
-                    Box::new(Expr::Alphabet("3".to_string())),
-                    Box::new(Expr::Alphabet("4".to_string()))
+                    Box::new(Expr::Alphabet("3")),
+                    Box::new(Expr::Alphabet("4"))
                 )))),
             )
         );
@@ -203,14 +199,14 @@ mod tests {
 
     #[test]
     fn parse_expr2() {
-        let mut parser = Parser::from(&"a* + (3 + 4*)".to_string());
+        let mut parser = Parser::from("a* + (3 + 4*)");
         assert_eq!(
             parser.parse(),
             Expr::Plus(
-                Box::new(Expr::Star(Box::new(Expr::Alphabet("a".to_string())))),
+                Box::new(Expr::Star(Box::new(Expr::Alphabet("a")))),
                 Box::new(Expr::Plus(
-                    Box::new(Expr::Alphabet("3".to_string())),
-                    Box::new(Expr::Star(Box::new(Expr::Alphabet("4".to_string())))),
+                    Box::new(Expr::Alphabet("3")),
+                    Box::new(Expr::Star(Box::new(Expr::Alphabet("4")))),
                 )),
             )
         );

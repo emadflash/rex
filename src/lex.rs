@@ -1,8 +1,8 @@
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
-pub enum TokenKind {
-    Alphabet(String),
+pub enum TokenKind<'src> {
+    Alphabet(&'src str),
     Plus,
     Star,
     Dot,
@@ -11,13 +11,13 @@ pub enum TokenKind {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Token {
-    pub kind: TokenKind,
+pub struct Token<'src> {
+    pub kind: TokenKind<'src>,
     pub pos: (usize, usize),
 }
 
-impl Token {
-    fn new(kind: TokenKind, pos: (usize, usize)) -> Self {
+impl<'src> Token<'src> {
+    fn new(kind: TokenKind<'src>, pos: (usize, usize)) -> Self {
         Self {
             kind: kind,
             pos: pos,
@@ -25,13 +25,13 @@ impl Token {
     }
 }
 
-impl TokenKind {
-    fn to_token(self, pos: (usize, usize)) -> Token {
+impl<'src> TokenKind<'src> {
+    fn to_token(self, pos: (usize, usize)) -> Token<'src> {
         Token::new(self, pos)
     }
 }
 
-impl fmt::Display for TokenKind {
+impl<'src> fmt::Display for TokenKind<'src> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TokenKind::Alphabet(alphabet) => write!(f, "TokenKind::Alphabet({})", alphabet),
@@ -44,8 +44,8 @@ impl fmt::Display for TokenKind {
     }
 }
 
-pub fn tokenize(s: &String) -> Result<Vec<Token>, String> {
-    let mut tokens: Vec<Token> = Vec::new();
+pub fn tokenize<'src>(s: &'src str) -> Result<Vec<Token<'src>>, String> {
+    let mut tokens: Vec<Token<'src>> = Vec::new();
     let mut it = s.char_indices().peekable();
 
     while let Some((index, ch)) = it.next() {
@@ -67,12 +67,12 @@ pub fn tokenize(s: &String) -> Result<Vec<Token>, String> {
             '.' => tokens.push(TokenKind::Dot.to_token((0, index))),
 
             'a'..='z' | '0'..='9' => {
-                let mut alphabet = String::from(ch);
+                let mut end = index;
 
                 while let Some((_, a)) = it.peek() {
                     match a {
                         'a'..='z' | '0'..='9' => {
-                            alphabet.push(*a);
+                            end += 1;
                             it.next();
                         }
 
@@ -80,7 +80,7 @@ pub fn tokenize(s: &String) -> Result<Vec<Token>, String> {
                     };
                 }
 
-                tokens.push(TokenKind::Alphabet(alphabet).to_token((0, index)));
+                tokens.push(TokenKind::Alphabet(&s[index..=end]).to_token((0, index)));
             }
 
             _ => {
@@ -99,24 +99,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tokenizer() {
-        let text = "(1 + 2).(3 + 4)*".to_string();
+    fn tokenization() {
+        let text: &str = "(1 + 2).(3 + 4)*(1.3)";
 
         assert_eq!(
             tokenize(&text),
             Ok(vec![
                 Token::new(TokenKind::LeftParen, (0, 0)),
-                Token::new(TokenKind::Alphabet("1".to_string()), (0, 1)),
+                Token::new(TokenKind::Alphabet("1"), (0, 1)),
                 Token::new(TokenKind::Plus, (0, 3)),
-                Token::new(TokenKind::Alphabet("2".to_string()), (0, 5)),
+                Token::new(TokenKind::Alphabet("2"), (0, 5)),
                 Token::new(TokenKind::RightParen, (0, 6)),
                 Token::new(TokenKind::Dot, (0, 7)),
                 Token::new(TokenKind::LeftParen, (0, 8)),
-                Token::new(TokenKind::Alphabet("3".to_string()), (0, 9)),
+                Token::new(TokenKind::Alphabet("3"), (0, 9)),
                 Token::new(TokenKind::Plus, (0, 11)),
-                Token::new(TokenKind::Alphabet("4".to_string()), (0, 13)),
+                Token::new(TokenKind::Alphabet("4"), (0, 13)),
                 Token::new(TokenKind::RightParen, (0, 14)),
                 Token::new(TokenKind::Star, (0, 15)),
+                Token::new(TokenKind::LeftParen, (0, 16)),
+                Token::new(TokenKind::Alphabet("1"), (0, 17)),
+                Token::new(TokenKind::Dot, (0, 18)),
+                Token::new(TokenKind::Alphabet("3"), (0, 19)),
+                Token::new(TokenKind::RightParen, (0, 20)),
             ])
         );
     }

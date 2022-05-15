@@ -1,4 +1,4 @@
-mod expr;
-mod parser;
-mod tokenizer;
 mod eval;
+mod expr;
+mod lex;
+mod parser;
