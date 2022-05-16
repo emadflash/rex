@@ -1,5 +1,19 @@
+use std::fmt;
 use crate::expr::Expr;
 use crate::lex::{tokenize, Token, TokenKind};
+
+#[derive(Debug)]
+pub enum ParseError {
+    Lexer(String)
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ParseError::Lexer(e) => write!(f, "ParseError::Lexer({})", e),
+        }
+    }
+}
 
 pub struct Parser<'src> {
     tokens: Vec<Token<'src>>,
@@ -7,11 +21,16 @@ pub struct Parser<'src> {
 }
 
 impl<'src> Parser<'src> {
-    pub fn from(text: &'src str) -> Self {
-        Self {
-            tokens: tokenize(text).unwrap(),
-            curr: 0,
+    pub fn from(text: &'src str) -> Result<Self, ParseError> {
+        let tokens =  tokenize(&text);
+        if let Err(e) = tokens {
+            return Err(ParseError::Lexer(e));
         }
+
+        Ok(Self {
+            tokens: tokens.unwrap(),
+            curr: 0,
+        })
     }
 
     fn next(&mut self) -> Option<&Token<'src>> {
@@ -115,13 +134,13 @@ mod tests {
 
     #[test]
     fn alphabet_expr() {
-        let mut parser = Parser::from("aabb");
+        let mut parser = Parser::from("aabb").unwrap();
         assert_eq!(parser.parse(), Expr::Alphabet("aabb"));
     }
 
     #[test]
     fn plus_expr() {
-        let mut parser = Parser::from("69 + 23 + 79 + 59");
+        let mut parser = Parser::from("69 + 23 + 79 + 59").unwrap();
         assert_eq!(
             parser.parse(),
             Expr::Plus(
@@ -139,13 +158,13 @@ mod tests {
 
     #[test]
     fn star_expr() {
-        let mut parser = Parser::from("aabb*");
+        let mut parser = Parser::from("aabb*").unwrap();
         assert_eq!(parser.parse(), Expr::Star(Box::new(Expr::Alphabet("aabb"))));
     }
 
     #[test]
     fn dot_expr() {
-        let mut parser = Parser::from("a.b.c.d");
+        let mut parser = Parser::from("a.b.c.d").unwrap();
         assert_eq!(
             parser.parse(),
             Expr::Dot(
@@ -163,7 +182,7 @@ mod tests {
 
     #[test]
     fn paren_expr() {
-        let mut parser = Parser::from("(a + b).(c + d)");
+        let mut parser = Parser::from("(a + b).(c + d)").unwrap();
         assert_eq!(
             parser.parse(),
             Expr::Dot(
@@ -181,7 +200,7 @@ mod tests {
 
     #[test]
     fn parse_expr() {
-        let mut parser = Parser::from("(1 + 2).(3 + 4)*");
+        let mut parser = Parser::from("(1 + 2).(3 + 4)*").unwrap();
         assert_eq!(
             parser.parse(),
             Expr::Dot(
@@ -199,7 +218,7 @@ mod tests {
 
     #[test]
     fn parse_expr2() {
-        let mut parser = Parser::from("a* + (3 + 4*)");
+        let mut parser = Parser::from("a* + (3 + 4*)").unwrap();
         assert_eq!(
             parser.parse(),
             Expr::Plus(

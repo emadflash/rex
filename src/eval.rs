@@ -71,8 +71,8 @@ mod tests {
 
     #[test]
     fn alphabet() {
-        let regex = "abcd".to_string();
-        let mut parser = Parser::from(&regex);
+        let regex = "abcd";
+        let mut parser = Parser::from(&regex).unwrap();
 
         let mut eval = Eval::new("abcd".to_string());
         assert!(eval.eval(Box::new(parser.parse())));
@@ -80,8 +80,8 @@ mod tests {
 
     #[test]
     fn star() {
-        let regex = "a*".to_string();
-        let mut parser = Parser::from(&regex);
+        let regex = "a*";
+        let mut parser = Parser::from(&regex).unwrap();
 
         let mut eval = Eval::new("aaaa".to_string());
         assert!(eval.eval(Box::new(parser.parse())));
@@ -89,8 +89,8 @@ mod tests {
 
     #[test]
     fn plus() {
-        let regex = "a + b".to_string();
-        let mut parser = Parser::from(&regex);
+        let regex = "a + b";
+        let mut parser = Parser::from(&regex).unwrap();
 
         let mut eval = Eval::new("a".to_string());
         assert!(eval.eval(Box::new(parser.parse())));

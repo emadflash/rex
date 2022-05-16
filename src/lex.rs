@@ -99,7 +99,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tokenization() {
+    fn tokenizeer() {
         let text: &str = "(1 + 2).(3 + 4)*(1.3)";
 
         assert_eq!(
