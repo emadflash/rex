@@ -1,10 +1,10 @@
-use std::fmt;
 use crate::expr::Expr;
 use crate::lex::{tokenize, Token, TokenKind};
+use std::fmt;
 
 #[derive(Debug)]
 pub enum ParseError {
-    Lexer(String)
+    Lexer(String),
 }
 
 impl fmt::Display for ParseError {
@@ -22,7 +22,7 @@ pub struct Parser<'src> {
 
 impl<'src> Parser<'src> {
     pub fn from(text: &'src str) -> Result<Self, ParseError> {
-        let tokens =  tokenize(&text);
+        let tokens = tokenize(&text);
         if let Err(e) = tokens {
             return Err(ParseError::Lexer(e));
         }
@@ -73,33 +73,30 @@ impl<'src> Parser<'src> {
     // alphabet ::= 'a'..'z' | '0'..'9'
     // primary ::= alphabet | '(' expr ')'
     fn parse_primary(&mut self) -> Expr<'src> {
-        eprintln!("{:?}", self.tokens);
         match self.next() {
             None => panic!("Expected expression"),
-            Some(tok) => {
-                match &tok.kind {
-                    TokenKind::Alphabet(alphabet) => return Expr::Alphabet(alphabet),
-                    TokenKind::LeftParen => {
-                        let inner = self.parse();
+            Some(tok) => match &tok.kind {
+                TokenKind::Alphabet(alphabet) => Expr::Alphabet(alphabet),
+                TokenKind::LeftParen => {
+                    let inner = self.parse();
 
-                        match self.next() {
-                            None => panic!("Expected closing paren ')'"),
-                            Some(tok) => {
-                                if tok.kind != TokenKind::RightParen {
-                                    panic!("Expected closing paren ')'");
-                                }
+                    match self.next() {
+                        None => panic!("Expected closing paren ')'"),
+                        Some(tok) => {
+                            if tok.kind != TokenKind::RightParen {
+                                panic!("Expected closing paren ')'");
                             }
-                        };
+                        }
+                    };
 
-                        return inner;
-                    }
+                    inner
+                }
 
-                    _ => {
-                        panic!("Unexpected token");
-                    }
-                };
-            }
-        };
+                _ => {
+                    panic!("Unexpected token");
+                }
+            },
+        }
     }
 
     // expr ::= primary | dot | plus | star

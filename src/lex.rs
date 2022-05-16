@@ -84,9 +84,7 @@ pub fn tokenize<'src>(s: &'src str) -> Result<Vec<Token<'src>>, String> {
             }
 
             _ => {
-                return Err(format!("Encountered unknown character: {}", ch)
-                    .to_string()
-                    .into());
+                return Err(format!("Encountered unknown character: {}", ch).to_string());
             }
         };
     }
