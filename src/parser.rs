@@ -5,12 +5,16 @@ use std::fmt;
 #[derive(Debug)]
 pub enum ParseError {
     Lexer(String),
+    ExpectedExpression,
+    ExpectedClosingParen,
 }
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ParseError::Lexer(e) => write!(f, "ParseError::Lexer({})", e),
+            ParseError::ExpectedExpression => write!(f, "ExpectedExpression"),
+            ParseError::ExpectedClosingParen => write!(f, "ExpectedClosingParen"),
         }
     }
 }
@@ -53,74 +57,70 @@ impl<'src> Parser<'src> {
     }
 
     // star ::= expr *
-    fn parse_star_expr(&mut self, lhs: Expr<'src>) -> Expr<'src> {
+    fn parse_star_expr(&mut self, lhs: Expr<'src>) -> Result<Expr<'src>, ParseError> {
         self.next();
-        Expr::Star(Box::new(lhs))
+        Ok(Expr::Star(Box::new(lhs)))
     }
 
     // plus ::= expr + expr
-    fn parse_plus_expr(&mut self, lhs: Expr<'src>) -> Expr<'src> {
+    fn parse_plus_expr(&mut self, lhs: Expr<'src>) -> Result<Expr<'src>, ParseError> {
         self.next();
-        Expr::Plus(Box::new(lhs), Box::new(self.parse()))
+        Ok(Expr::Plus(Box::new(lhs), Box::new(self.parse()?)))
     }
 
     // dot ::= expr . expr
-    fn parse_dot_expr(&mut self, lhs: Expr<'src>) -> Expr<'src> {
+    fn parse_dot_expr(&mut self, lhs: Expr<'src>) -> Result<Expr<'src>, ParseError> {
         self.next();
-        Expr::Dot(Box::new(lhs), Box::new(self.parse()))
+        Ok(Expr::Dot(Box::new(lhs), Box::new(self.parse()?)))
     }
 
     // alphabet ::= 'a'..'z' | '0'..'9'
-    // primary ::= alphabet | '(' expr ')'
-    fn parse_primary(&mut self) -> Expr<'src> {
+    // primary  ::= alphabet | '(' expr ')'
+    fn parse_primary(&mut self) -> Result<Expr<'src>, ParseError> {
         match self.next() {
-            None => panic!("Expected expression"),
+            None => Err(ParseError::ExpectedExpression),
             Some(tok) => match &tok.kind {
-                TokenKind::Alphabet(alphabet) => Expr::Alphabet(alphabet),
+                TokenKind::Alphabet(alphabet) => Ok(Expr::Alphabet(alphabet)),
                 TokenKind::LeftParen => {
-                    let inner = self.parse();
+                    let inner = self.parse()?;
 
                     match self.next() {
-                        None => panic!("Expected closing paren ')'"),
+                        None => return Err(ParseError::ExpectedClosingParen),
                         Some(tok) => {
                             if tok.kind != TokenKind::RightParen {
-                                panic!("Expected closing paren ')'");
+                                return Err(ParseError::ExpectedClosingParen);
                             }
                         }
                     };
 
-                    inner
+                    Ok(inner)
                 }
 
-                _ => {
-                    panic!("Unexpected token");
-                }
+                _ => Err(ParseError::ExpectedExpression)
             },
         }
     }
 
     // expr ::= primary | dot | plus | star
-    fn parse_expr(&mut self, lhs: Expr<'src>) -> Expr<'src> {
+    fn parse_expr(&mut self, lhs: Expr<'src>) -> Result<Expr<'src>, ParseError> {
         let mut lhs = lhs;
 
         while let Some(tok) = self.peek() {
             match tok.kind {
-                TokenKind::Star => lhs = self.parse_star_expr(lhs),
-                TokenKind::Plus => lhs = self.parse_plus_expr(lhs),
-                TokenKind::Dot => lhs = self.parse_dot_expr(lhs),
+                TokenKind::Star => lhs = self.parse_star_expr(lhs)?,
+                TokenKind::Plus => lhs = self.parse_plus_expr(lhs)?,
+                TokenKind::Dot => lhs = self.parse_dot_expr(lhs)?,
                 TokenKind::RightParen => break,
 
-                _ => {
-                    panic!("Unexpected token");
-                }
+                _ => return Err(ParseError::ExpectedExpression)
             };
         }
 
-        lhs
+        Ok(lhs)
     }
 
-    pub fn parse(&mut self) -> Expr<'src> {
-        let primary = self.parse_primary();
+    pub fn parse(&mut self) -> Result<Expr<'src>, ParseError> {
+        let primary = self.parse_primary()?;
         self.parse_expr(primary)
     }
 }
@@ -132,14 +132,14 @@ mod tests {
     #[test]
     fn alphabet_expr() {
         let mut parser = Parser::from("aabb").unwrap();
-        assert_eq!(parser.parse(), Expr::Alphabet("aabb"));
+        assert_eq!(parser.parse().unwrap(), Expr::Alphabet("aabb"));
     }
 
     #[test]
     fn plus_expr() {
         let mut parser = Parser::from("69 + 23 + 79 + 59").unwrap();
         assert_eq!(
-            parser.parse(),
+            parser.parse().unwrap(),
             Expr::Plus(
                 Box::new(Expr::Alphabet("69")),
                 Box::new(Expr::Plus(
@@ -156,14 +156,14 @@ mod tests {
     #[test]
     fn star_expr() {
         let mut parser = Parser::from("aabb*").unwrap();
-        assert_eq!(parser.parse(), Expr::Star(Box::new(Expr::Alphabet("aabb"))));
+        assert_eq!(parser.parse().unwrap(), Expr::Star(Box::new(Expr::Alphabet("aabb"))));
     }
 
     #[test]
     fn dot_expr() {
         let mut parser = Parser::from("a.b.c.d").unwrap();
         assert_eq!(
-            parser.parse(),
+            parser.parse().unwrap(),
             Expr::Dot(
                 Box::new(Expr::Alphabet("a")),
                 Box::new(Expr::Dot(
@@ -181,7 +181,7 @@ mod tests {
     fn paren_expr() {
         let mut parser = Parser::from("(a + b).(c + d)").unwrap();
         assert_eq!(
-            parser.parse(),
+            parser.parse().unwrap(),
             Expr::Dot(
                 Box::new(Expr::Plus(
                     Box::new(Expr::Alphabet("a")),
@@ -199,7 +199,7 @@ mod tests {
     fn parse_expr() {
         let mut parser = Parser::from("(1 + 2).(3 + 4)*").unwrap();
         assert_eq!(
-            parser.parse(),
+            parser.parse().unwrap(),
             Expr::Dot(
                 Box::new(Expr::Plus(
                     Box::new(Expr::Alphabet("1")),
@@ -217,7 +217,7 @@ mod tests {
     fn parse_expr2() {
         let mut parser = Parser::from("a* + (3 + 4*)").unwrap();
         assert_eq!(
-            parser.parse(),
+            parser.parse().unwrap(),
             Expr::Plus(
                 Box::new(Expr::Star(Box::new(Expr::Alphabet("a")))),
                 Box::new(Expr::Plus(

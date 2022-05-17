@@ -75,7 +75,7 @@ mod tests {
         let mut parser = Parser::from(&regex).unwrap();
 
         let mut eval = Eval::new("abcd".to_string());
-        assert!(eval.eval(Box::new(parser.parse())));
+        assert!(eval.eval(Box::new(parser.parse().unwrap())));
     }
 
     #[test]
@@ -84,7 +84,7 @@ mod tests {
         let mut parser = Parser::from(&regex).unwrap();
 
         let mut eval = Eval::new("aaaa".to_string());
-        assert!(eval.eval(Box::new(parser.parse())));
+        assert!(eval.eval(Box::new(parser.parse().unwrap())));
     }
 
     #[test]
@@ -93,6 +93,6 @@ mod tests {
         let mut parser = Parser::from(&regex).unwrap();
 
         let mut eval = Eval::new("a".to_string());
-        assert!(eval.eval(Box::new(parser.parse())));
+        assert!(eval.eval(Box::new(parser.parse().unwrap())));
     }
 }

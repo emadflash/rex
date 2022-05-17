@@ -8,6 +8,7 @@ pub enum TokenKind<'src> {
     Dot,
     LeftParen,
     RightParen,
+    Eof,
 }
 
 #[derive(Debug, PartialEq)]
@@ -40,6 +41,7 @@ impl<'src> fmt::Display for TokenKind<'src> {
             TokenKind::Dot => write!(f, "TokenKind::Dot"),
             TokenKind::LeftParen => write!(f, "TokenKind::LeftParen"),
             TokenKind::RightParen => write!(f, "TokenKind::RightParen"),
+            TokenKind::Eof => write!(f, "TokenKind::Eof"),
         }
     }
 }
